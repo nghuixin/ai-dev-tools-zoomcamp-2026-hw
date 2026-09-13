@@ -30,7 +30,8 @@ uv run pytest
 Run from `backend/` for uv commands.
 
 ```
-make backend   # API on http://localhost:8091  (docs at /docs)
+make run       # API on http://localhost:8091  (docs at /docs)
+make backend   # same as make run
 make dev       # frontend on http://localhost:5173
 make test      # frontend Vitest + backend pytest
 ```
@@ -40,6 +41,7 @@ Frontend: `cd frontend && npm i && npm run dev` / `npm test`.
 ## Rules
 
 - All backend calls go through `frontend/src/services`. Do not call `fetch` elsewhere.
+- The running app uses `createHttpBoardService()` (`VITE_API_URL`, default `http://localhost:8091`). Keep the mock for tests only.
 - JSON is camelCase (`createdAt`, `columnId`, `wipLimit`) to match the frontend client.
 - No authentication in v1.
 - New boards seed To Do / In Progress / Done. The server re-indexes 0-based `position` on move/delete.

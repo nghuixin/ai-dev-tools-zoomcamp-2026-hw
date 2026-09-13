@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.deps import store
+from app.openapi_contract import build_openapi
 from app.routers import boards, cards, columns
 
 
@@ -16,7 +17,16 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Mini Kanban API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Mini Kanban API",
+    version="1.0.0",
+    description=(
+        "Contract derived from `frontend/src/services/BoardService`. "
+        "JSON field names are camelCase. No authentication in v1."
+    ),
+    lifespan=lifespan,
+)
+app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 
 app.add_middleware(
     CORSMiddleware,

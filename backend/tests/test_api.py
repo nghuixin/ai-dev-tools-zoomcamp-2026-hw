@@ -129,6 +129,28 @@ def test_validation_and_not_found(client):
     assert isinstance(too_long.json()["detail"], str)
 
 
+def test_column_and_card_not_found(client):
+    missing = uuid4()
+    assert client.patch(f"/columns/{missing}", json={"title": "Nope"}).json() == {
+        "detail": "Column not found"
+    }
+    assert client.delete(f"/cards/{missing}").status_code == 404
+    assert client.delete(f"/cards/{missing}").json() == {"detail": "Card not found"}
+
+
+def test_empty_column_patch_is_400(client):
+    board = client.get(f"/boards/{client.get('/boards').json()[0]['id']}").json()
+    response = client.patch(f"/columns/{board['columns'][0]['id']}", json={})
+    assert response.status_code == 400
+    assert response.json() == {"detail": "At least one field is required"}
+
+
+def test_api_has_no_auth(client):
+    spec = client.get("/openapi.json").json()
+    assert "securitySchemes" not in spec.get("components", {})
+    assert not spec.get("security")
+
+
 def test_cannot_move_card_across_boards(client):
     first = client.get("/boards").json()[0]
     second = client.post("/boards", json={"name": "Other"}).json()

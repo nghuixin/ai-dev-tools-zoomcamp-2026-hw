@@ -1,10 +1,10 @@
-.PHONY: dev backend test
+.PHONY: run backend dev test
+
+run backend:
+	cd backend && uv run uvicorn app.main:app --reload --port 8091
 
 dev:
 	cd frontend && npm run dev
-
-backend:
-	cd backend && uv run uvicorn app.main:app --reload --port 8091
 
 test:
 	cd frontend && npm test
