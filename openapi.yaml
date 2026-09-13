@@ -1,0 +1,471 @@
+openapi: 3.1.0
+info:
+  title: Mini Kanban API
+  version: 1.0.0
+  description: |
+    Contract derived from `frontend/src/services/BoardService`.
+    JSON field names are camelCase, matching the TypeScript client.
+    No authentication in v1.
+    Creating a board seeds columns To Do, In Progress, and Done.
+    The server re-indexes 0-based `position` values on every move or delete.
+
+servers:
+  - url: http://localhost:8091
+    description: Local FastAPI backend
+
+tags:
+  - name: boards
+  - name: columns
+  - name: cards
+
+paths:
+  /boards:
+    get:
+      tags: [boards]
+      operationId: listBoards
+      summary: List boards
+      description: Returns board summaries, most recently updated first.
+      responses:
+        "200":
+          description: Board list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BoardSummary"
+    post:
+      tags: [boards]
+      operationId: createBoard
+      summary: Create a board
+      description: Creates a board and seeds default columns To Do, In Progress, Done.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBoardInput"
+      responses:
+        "201":
+          description: Created board with nested columns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardDetail"
+        "400":
+          $ref: "#/components/responses/Error"
+
+  /boards/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [boards]
+      operationId: getBoard
+      summary: Get a board with nested columns and cards
+      responses:
+        "200":
+          description: Board detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [boards]
+      operationId: updateBoard
+      summary: Rename a board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBoardInput"
+      responses:
+        "200":
+          description: Updated board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardDetail"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [boards]
+      operationId: deleteBoard
+      summary: Delete a board
+      description: Cascades to columns and cards.
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /boards/{id}/columns:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [columns]
+      operationId: createColumn
+      summary: Create a column on a board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateColumnInput"
+      responses:
+        "201":
+          description: Created column
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Column"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /columns/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [columns]
+      operationId: updateColumn
+      summary: Rename a column, set WIP limit, or change position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateColumnInput"
+      responses:
+        "200":
+          description: Updated column
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Column"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [columns]
+      operationId: deleteColumn
+      summary: Delete a column
+      description: Cascades to cards. Remaining columns on the board are re-indexed.
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /columns/{id}/cards:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [cards]
+      operationId: createCard
+      summary: Create a card in a column
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCardInput"
+      responses:
+        "201":
+          description: Created card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /cards/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [cards]
+      operationId: updateCard
+      summary: Edit card title and description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCardInput"
+      responses:
+        "200":
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [cards]
+      operationId: deleteCard
+      summary: Delete a card
+      description: Remaining cards in the column are re-indexed.
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /cards/{id}/move:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [cards]
+      operationId: moveCard
+      summary: Move a card to a column and position
+      description: |
+        `position` is 0-based within the target column.
+        Cards cannot move across boards.
+        Both source and target columns are re-indexed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveCardInput"
+      responses:
+        "200":
+          description: Moved card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Error:
+      description: Validation or business-rule error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            board:
+              value:
+                detail: Board not found
+            column:
+              value:
+                detail: Column not found
+            card:
+              value:
+                detail: Card not found
+
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+    BoardSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BoardDetail:
+      allOf:
+        - $ref: "#/components/schemas/BoardSummary"
+        - type: object
+          additionalProperties: false
+          required: [columns]
+          properties:
+            columns:
+              type: array
+              items:
+                $ref: "#/components/schemas/Column"
+
+    Column:
+      type: object
+      additionalProperties: false
+      required: [id, boardId, title, position, wipLimit, cards]
+      properties:
+        id:
+          type: string
+          format: uuid
+        boardId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        position:
+          type: integer
+          minimum: 0
+        wipLimit:
+          type: [integer, "null"]
+          minimum: 1
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+
+    Card:
+      type: object
+      additionalProperties: false
+      required: [id, columnId, title, description, position, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        columnId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 2000
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBoardInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    UpdateBoardInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    CreateColumnInput:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        wipLimit:
+          type: [integer, "null"]
+          minimum: 1
+
+    UpdateColumnInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        wipLimit:
+          type: [integer, "null"]
+          minimum: 1
+        position:
+          type: integer
+          minimum: 0
+
+    CreateCardInput:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 2000
+
+    UpdateCardInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 2000
+
+    MoveCardInput:
+      type: object
+      additionalProperties: false
+      required: [columnId, position]
+      properties:
+        columnId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
