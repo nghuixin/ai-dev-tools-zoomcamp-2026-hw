@@ -49,6 +49,45 @@ describe('httpBoardService', () => {
     )
   })
 
+  it('sends create/delete requests to the documented paths', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            id: 'b1',
+            name: 'New',
+            createdAt: 't',
+            updatedAt: 't',
+            columns: [],
+          },
+          201,
+        ),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const api = createHttpBoardService({
+      baseUrl: 'http://localhost:8091',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    const created = await api.createBoard({ name: 'New' })
+    expect(created.name).toBe('New')
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:8091/boards',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ name: 'New' }),
+      }),
+    )
+    await api.deleteBoard('b1')
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:8091/boards/b1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('treats a network failure as Backend unreachable', async () => {
     const api = createHttpBoardService({
       fetchImpl: (async () => {
