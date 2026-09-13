@@ -18,7 +18,6 @@
 - Didn't produce `AGENTS.md` until explicitly asked.
 - Treated `localhost:8091/` as the spec surface; the spec surface is `/docs`.
 - Generated `/docs` advertised 422 and FastAPI validation schemas while the running app already returned 400/404 — contract and docs drifted. Paths, methods, and `operationId`s did match.
-- Environment issue rather than AI: OneDrive deleted sources and left a UTF-16 `package.json` after a restore.
 
 **Verified by hand.** `make test` (frontend and backend); loading the seeded Workshop board in the browser and creating a card via POST; side-by-side check of `/docs` against `openapi.yaml`.
 
