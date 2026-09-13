@@ -1,6 +1,6 @@
 # Mini Kanban frontend
 
-React + TypeScript UI with every backend call behind `src/services`. The default client is an in-memory mock persisted to `localStorage`, so the app runs with no server.
+React + TypeScript UI with every backend call behind `src/services`. The default client is `createHttpBoardService()`, which talks to FastAPI at `http://localhost:8091` (override with `VITE_API_URL`).
 
 ```bash
 npm install
@@ -8,4 +8,4 @@ npm run dev
 npm test
 ```
 
-The mock is exported from `src/services/index.ts`. Replace `boardService` with an HTTP client when FastAPI is ready.
+Keep the backend running (`make backend`) while using the app. Tests can still inject `createMockBoardService()`.

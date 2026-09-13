@@ -1,9 +1,10 @@
 import type { BoardService } from './boardService'
-import { createMockBoardService } from './mockBoardService'
+import { createHttpBoardService } from './httpBoardService'
 
 export type { BoardService } from './boardService'
 export { ApiError } from './errors'
+export { createHttpBoardService } from './httpBoardService'
 export { createMockBoardService } from './mockBoardService'
 
-/** Active backend client. Replace this export when wiring FastAPI. */
-export const boardService: BoardService = createMockBoardService()
+/** Live FastAPI client. Tests can still inject createMockBoardService(). */
+export const boardService: BoardService = createHttpBoardService()
