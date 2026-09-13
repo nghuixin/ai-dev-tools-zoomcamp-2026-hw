@@ -1,4 +1,4 @@
-﻿# Mini Kanban
+﻿# Mini Kanban 看板/かんばん
 
 A small Kanban board: React frontend + FastAPI backend. The UI talks to the API at `http://localhost:8091`.
 
