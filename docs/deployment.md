@@ -47,12 +47,15 @@ aws cloudformation deploy \
   --parameter-overrides GitHubSub=repo:<your-org>/<your-repo>:*
 ```
 
-Copy the `RoleArn` output. In the GitHub repo: **Settings → Secrets and variables → Actions → Variables**:
+Copy the `RoleArn` output. It must look like `arn:aws:iam::577331852018:role/mini-kanban-github-actions`, not just the role name.
+
+In the GitHub repo: **Settings → Secrets and variables → Actions → Variables**. Because deploy uses the **production** environment, set the same variable under **Settings → Environments → production** if that environment is configured.
 
 | Variable | Value |
 |---|---|
-| `AWS_ROLE_ARN` | that role ARN |
+| `AWS_ROLE_ARN` | full role ARN (`arn:aws:iam::…:role/…`) |
 | `AWS_REGION` | `us-east-1` (optional) |
+| `AWS_ACCOUNT_ID` | `577331852018` (optional; used only if `AWS_ROLE_ARN` is a name) |
 
 If the account already has `token.actions.githubusercontent.com`, pass `ExistingOidcProviderArn`.
 

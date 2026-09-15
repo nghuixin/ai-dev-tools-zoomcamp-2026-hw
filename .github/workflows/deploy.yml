@@ -12,6 +12,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '577331852018' }}
   ECR_STACK: mini-kanban-ecr
   APP_STACK: mini-kanban-app
 
@@ -21,18 +22,31 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Require GitHub OIDC role
+      - id: role
+        name: Resolve IAM role ARN
+        env:
+          RAW_ROLE: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
         run: |
-          if [ -z "${{ vars.AWS_ROLE_ARN }}" ]; then
-            echo "Set repository variable AWS_ROLE_ARN to the IAM role from infra/github-oidc.yml"
+          set -euo pipefail
+          role="$(printf '%s' "$RAW_ROLE" | tr -d '[:space:]' | tr -d '"')"
+          if [ -z "$role" ]; then
+            echo "Set GitHub variable AWS_ROLE_ARN to the full role ARN from the OIDC stack."
+            echo "Example: arn:aws:iam::${AWS_ACCOUNT_ID}:role/mini-kanban-github-actions"
+            echo "If this job uses the production environment, set the variable there too."
             exit 1
           fi
+          if [[ "$role" != arn:aws:iam::* ]]; then
+            echo "AWS_ROLE_ARN is a role name, not an ARN. Building ARN from AWS_ACCOUNT_ID."
+            role="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${role#role/}"
+          fi
+          echo "Using $role"
+          echo "arn=$role" >> "$GITHUB_OUTPUT"
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: ${{ steps.role.outputs.arn }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: ECR stack
