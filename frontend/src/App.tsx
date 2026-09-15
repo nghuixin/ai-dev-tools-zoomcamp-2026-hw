@@ -37,6 +37,15 @@ export default function App({ service = boardService }: Props) {
             </select>
           </label>
         ) : null}
+        {kanban.board ? (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => void navigator.clipboard.writeText(window.location.href)}
+          >
+            Copy join link
+          </button>
+        ) : null}
         <form className="create-board" onSubmit={(event) => void createBoard(event)}>
           <input
             aria-label="New board name"

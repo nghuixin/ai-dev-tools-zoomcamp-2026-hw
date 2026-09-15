@@ -23,7 +23,10 @@ export type HttpBoardServiceOptions = {
 
 function apiBaseUrl() {
   const fromEnv = import.meta.env.VITE_API_URL
-  return typeof fromEnv === 'string' && fromEnv.length > 0 ? fromEnv : DEFAULT_API_URL
+  if (typeof fromEnv === 'string' && fromEnv.length > 0) return fromEnv
+  // Production build is served by FastAPI on the same origin.
+  if (import.meta.env.PROD) return ''
+  return DEFAULT_API_URL
 }
 
 async function parseBody(response: Response): Promise<unknown> {

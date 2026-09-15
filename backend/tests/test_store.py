@@ -35,8 +35,6 @@ def test_delete_board_cascades_columns_and_cards():
         store.get_board(board.id)
     assert exc.value.status == 404
     assert store.list_boards() == []
-    assert store.columns == {}
-    assert store.cards == {}
 
 
 def test_column_reorder_and_delete_reindexes():

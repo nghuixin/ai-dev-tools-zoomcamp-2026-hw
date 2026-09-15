@@ -1,0 +1,102 @@
+name: Deploy
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_STACK: mini-kanban-ecr
+  APP_STACK: mini-kanban-app
+
+jobs:
+  aws:
+    name: CloudFormation + health check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require GitHub OIDC role
+        run: |
+          if [ -z "${{ vars.AWS_ROLE_ARN }}" ]; then
+            echo "Set repository variable AWS_ROLE_ARN to the IAM role from infra/github-oidc.yml"
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ECR stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name "$ECR_STACK" \
+            --template-file infra/ecr.yml \
+            --no-fail-on-empty-changeset
+
+      - id: ecr
+        name: Login and image URI
+        run: |
+          uri=$(aws cloudformation describe-stacks \
+            --stack-name "$ECR_STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text)
+          echo "uri=$uri" >> "$GITHUB_OUTPUT"
+          echo "image=${uri}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "${uri%%/*}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ steps.ecr.outputs.image }}
+            ${{ steps.ecr.outputs.uri }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: App stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name "$APP_STACK" \
+            --template-file infra/app.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides "ImageUri=${{ steps.ecr.outputs.image }}" \
+            --no-fail-on-empty-changeset
+
+      - id: url
+        name: App URL
+        run: |
+          url=$(aws cloudformation describe-stacks \
+            --stack-name "$APP_STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='AppUrl'].OutputValue" \
+            --output text)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed URL: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate /health
+        run: |
+          url="${{ steps.url.outputs.url }}"
+          for i in $(seq 1 60); do
+            if curl -fsS "$url/health" | grep -q '"status":"ok"'; then
+              echo "Health check passed: $url/health"
+              exit 0
+            fi
+            echo "waiting ($i)..."
+            sleep 10
+          done
+          echo "Health check failed for $url/health"
+          exit 1

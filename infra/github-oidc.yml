@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: GitHub Actions OIDC provider and deploy role (no long-lived AWS keys).
+
+Parameters:
+  GitHubSub:
+    Type: String
+    Description: token.actions.githubusercontent.com:sub, e.g. repo:my-org/mini-kanban:*
+    Default: repo:*/*
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ""
+    Description: Leave empty to create the GitHub OIDC provider. Set if the account already has one.
+
+Conditions:
+  CreateProvider: !Equals [!Ref ExistingOidcProviderArn, ""]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - ffffffffffffffffffffffffffffffffffffffff
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: mini-kanban-github-actions
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateProvider
+                - !Ref GitHubOidcProvider
+                - !Ref ExistingOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Ref GitHubSub
+      Policies:
+        - PolicyName: mini-kanban-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudFormation
+                Effect: Allow
+                Action:
+                  - cloudformation:*
+                Resource: "*"
+              - Sid: Runtime
+                Effect: Allow
+                Action:
+                  - ecr:*
+                  - ecs:*
+                  - elasticloadbalancing:*
+                  - rds:*
+                  - ec2:*
+                  - logs:*
+                  - secretsmanager:*
+                  - iam:PassRole
+                  - iam:GetRole
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:TagRole
+                Resource: "*"
+
+Outputs:
+  RoleArn:
+    Description: Set this as GitHub Actions variable AWS_ROLE_ARN
+    Value: !GetAtt GitHubActionsRole.Arn

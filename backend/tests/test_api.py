@@ -1,6 +1,12 @@
 from uuid import uuid4
 
 
+def test_health_ok_when_store_works(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_seeded_board_is_listed(client):
     response = client.get("/boards")
     assert response.status_code == 200

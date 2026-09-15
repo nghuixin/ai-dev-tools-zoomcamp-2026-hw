@@ -3,6 +3,7 @@ node_modules/
 
 # Builds and caches
 dist/
+backend/static/
 dist-ssr/
 *.tsbuildinfo
 .vite/

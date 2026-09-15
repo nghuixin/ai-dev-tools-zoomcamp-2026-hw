@@ -5,12 +5,17 @@ A small Kanban board: React frontend + FastAPI backend. The UI talks to the API 
 ## Project structure
 
 ```
-frontend/        React + Vite UI. All API calls go through src/services/
-backend/         FastAPI app: routers, models, in-memory store, tests
-docs/            spec, design tasks, AI usage report
-openapi.yaml     frontend/backend contract
-AGENTS.md        instructions for coding agents
-Makefile         make run / make dev / make test
+frontend/                 React + Vite UI. All API calls go through src/services/
+backend/                  FastAPI app: routers, models, SQLAlchemy store, unit tests
+tests/integration/        HTTP tests against docker-compose.yml
+e2e/                      Playwright two-session tests
+docs/                     spec, testing, deployment, release
+Dockerfile
+docker-compose.yml
+.github/workflows/        ci.yml, deploy.yml
+openapi.yaml              frontend/backend contract
+AGENTS.md
+Makefile
 ```
 
 ## Prerequisites
@@ -61,17 +66,18 @@ npm run dev
 
 Open **http://localhost:5173**. The client uses `http://localhost:8091` (`VITE_API_URL` to override).
 
-The store is in-memory. Restarting the backend resets data; a **Workshop** board is seeded on startup.
+A **Workshop** board is seeded when the database is empty. With `SDIP_DATABASE_URL` / `DATABASE_URL` pointing at Postgres (or Compose), restarts keep data.
+
+**All-in-one (UI + API + Postgres):** `docker compose -f docker-compose.yml up --build` → http://localhost:8091
 
 ## Tests
 
-```bash
-make test
-```
-
-or
+See [docs/testing.md](docs/testing.md).
 
 ```bash
-cd frontend && npm test
-cd backend && uv run pytest
+make test                 # frontend + backend unit
+make test-integration     # docker-compose.yml
+make e2e                  # Playwright
 ```
+
+Deploy and release: [docs/deployment.md](docs/deployment.md), [docs/release-process.md](docs/release-process.md).

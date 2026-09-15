@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Vitest
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Pytest (unit)
+        working-directory: backend
+        run: |
+          uv sync --group dev
+          uv run pytest -m "not integration"
+
+  compose:
+    name: Compose integration + e2e
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build and start docker-compose.yml
+        run: docker compose -f docker-compose.yml -p kanban-ci up -d --build
+
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8091/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -p kanban-ci logs
+          exit 1
+
+      - name: Integration tests against Compose
+        working-directory: backend
+        env:
+          INTEGRATION_BASE_URL: http://127.0.0.1:8091
+        run: |
+          uv sync --group dev
+          uv run pytest ../tests/integration -m integration
+
+      - name: Playwright e2e against Compose
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8091
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
+
+      - name: Stop Compose
+        if: always()
+        run: docker compose -p kanban-ci down -v
+
+  deploy:
+    name: Deploy to AWS
+    needs: compose
+    if: >-
+      vars.AWS_ROLE_ARN != '' &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit

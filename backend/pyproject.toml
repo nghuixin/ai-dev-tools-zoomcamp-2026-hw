@@ -1,10 +1,12 @@
 [project]
 name = "kanban-backend"
 version = "0.1.0"
-description = "Mini Kanban FastAPI backend (in-memory store)"
+description = "Mini Kanban FastAPI backend (SQLAlchemy, SQLite or Postgres)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy>=2.0",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -17,3 +19,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "integration: hits the docker-compose.yml Postgres + app stack",
+]

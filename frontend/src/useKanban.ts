@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { readBoardIdFromLocation, syncBoardIdInLocation } from './boardUrl'
 import { readLastBoardId, writeLastBoardId } from './lastBoard'
 import { ApiError, type BoardService } from './services'
 import type { BoardDetail, BoardSummary } from './types'
@@ -31,6 +32,7 @@ export function useKanban(service: BoardService) {
         const detail = await service.getBoard(boardId)
         setBoard(detail)
         writeLastBoardId(window.localStorage, detail.id)
+        syncBoardIdInLocation(window.location, window.history, detail.id)
         setError(null)
         return detail
       } catch (err) {
@@ -44,13 +46,18 @@ export function useKanban(service: BoardService) {
     setLoading(true)
     try {
       const list = await refreshList()
+      const fromLink = readBoardIdFromLocation(window.location)
       const lastId = readLastBoardId(window.localStorage)
       const preferred =
-        list.find((item) => item.id === lastId) ?? list[0] ?? null
+        list.find((item) => item.id === fromLink) ??
+        list.find((item) => item.id === lastId) ??
+        list[0] ??
+        null
       if (preferred) {
         await openBoard(preferred.id)
       } else {
         setBoard(null)
+        syncBoardIdInLocation(window.location, window.history, null)
       }
       setError(null)
     } catch (err) {
@@ -70,6 +77,7 @@ export function useKanban(service: BoardService) {
         const created = await service.createBoard({ name })
         setBoard(created)
         writeLastBoardId(window.localStorage, created.id)
+        syncBoardIdInLocation(window.location, window.history, created.id)
         await refreshList()
         setError(null)
         return created
@@ -105,7 +113,10 @@ export function useKanban(service: BoardService) {
       writeLastBoardId(window.localStorage, null)
       const list = await refreshList()
       if (list[0]) await openBoard(list[0].id)
-      else setBoard(null)
+      else {
+        setBoard(null)
+        syncBoardIdInLocation(window.location, window.history, null)
+      }
       setError(null)
     } catch (err) {
       fail(err)
